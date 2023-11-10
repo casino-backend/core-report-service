@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8085
 spring:
   kafka:
     consumer:
@@ -17,15 +17,18 @@ services:
   memberService:
     url: http://localhost:8081/member-api
 
-    # spring:
-    #   kafka:
-    #  consumer:
-    #   bootstrap-servers: <bootstrapServers>
-    #  group-id: transaction-group
-    #  key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-    #   value-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
-    #   properties:
-    #     specific.avro.reader: true
-  #  topics: transaction
-  # Add other Kafka consumer properties here
 
+# spring:
+#   kafka:
+#  consumer:
+#   bootstrap-servers: <bootstrapServers>
+#  group-id: transaction-group
+#  key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+#   value-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
+#   properties:
+#     specific.avro.reader: true
+#  topics: transaction
+# Add other Kafka consumer properties here
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html

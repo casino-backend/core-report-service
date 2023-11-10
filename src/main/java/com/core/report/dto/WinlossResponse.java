@@ -4,9 +4,10 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.bson.Document;
 
 import java.util.List;
-import java.util.Map;
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -14,15 +15,15 @@ import java.util.Map;
 public class WinlossResponse {
     private int totalBetCount;
     private double totalBetAmount;
-    private double totalMemberWinloss;
     private double totalBetTransferIn;
     private double totalBetTransferOut;
-    private double totalAgentWinloss;
     private double totalAgentWinAgentValid;
+    private double totalMemberWinloss;
+    private double totalAgentWinloss;
     private double totalCompanyWinloss;
     private double totalProviderWinloss;
     private String lastUpdate;
-    private List<Map<String, Object>> items;
+    private List<Document> items;
     private Object request;
 
     // Getters and setters for all fields

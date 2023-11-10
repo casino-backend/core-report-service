@@ -13,11 +13,10 @@ public class Transformer {
 
         // Extracting playdate and formatting it
         Object playdateObject = key.get("playdate");
-        if (playdateObject == null || !(playdateObject instanceof String)) {
+        if (playdateObject == null || !(playdateObject instanceof String playdate)) {
             throw new IllegalArgumentException("playdate field is missing or not a string");
         }
 
-        String playdate = (String) playdateObject;
         String dateOnly = playdate.split(" ")[0];
 
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");

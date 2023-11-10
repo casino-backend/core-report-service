@@ -9,7 +9,7 @@ import java.util.List;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class User implements UserDetails{
+public class User implements UserDetails {
 
     private String username;
     private String type;

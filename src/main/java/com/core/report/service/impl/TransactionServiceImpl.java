@@ -1,16 +1,16 @@
 package com.core.report.service.impl;
 
+import com.core.report.entities.Transaction;
 import com.core.report.repositories.TransactionRepository;
 import com.core.report.service.TransactionService;
-import com.core.report.entities.Transaction;
 import com.mongodb.client.MongoCollection;
-import com.mongodb.client.model.Filters;
-import com.mongodb.client.model.UpdateOptions;
+import com.mongodb.client.MongoCursor;
+import com.mongodb.client.model.*;
 import org.apache.commons.lang3.StringUtils;
 import org.bson.Document;
+import org.bson.conversions.Bson;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.aggregation.*;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.stereotype.Service;
 
@@ -31,9 +31,8 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Autowired
     private MongoTemplate mongoTemplate;
-    @Override
-    public void processTransaction(Transaction transaction) {
-        transactionRepository.save(transaction);
+
+    private static Criteria getTransactionsFilterCriteria(Transaction transaction) {
         Criteria criteria = Criteria.where("username").is(transaction.getUsername())
                 .and("roundId").is(transaction.getRoundId());
 
@@ -44,72 +43,75 @@ public class TransactionServiceImpl implements TransactionService {
         if (StringUtils.isNotEmpty(transaction.getUpline())) {
             criteria = criteria.and("upline").is(transaction.getUpline());
         }
-
-// Create a MatchOperation with the criteria
-        MatchOperation matchOperation = Aggregation.match(criteria);
-
-        GroupOperation groupOperation = Aggregation.group("roundId")
-                .last("actionType").as("actionType")
-                .last("action").as("action")
-                .first("beforeBalance").as("beforeBalance")
-                .last("afterBalance").as("afterBalance")
-                .first("$$ROOT").as("doc")
-                .first("isFeatureBuy").as("isFeatureBuy")
-                .last("endRound").as("endRound")
-                .last("createdAt").as("createdAt")
-                .sum(ConditionalOperators.when(ComparisonOperators.valueOf("actionType").equalToValue("deposit"))
-                        .then("amount").otherwise(0)).as("amountDeposit")
-                .sum(ConditionalOperators.when(ComparisonOperators.valueOf("actionType").equalToValue("withdraw"))
-                        .then("amount").otherwise(0)).as("amountWithdraw")
-                .sum(ConditionalOperators.when(ComparisonOperators.valueOf("actionType").equalToValue("betTransferOut"))
-                        .then("amount").otherwise(0)).as("betTransferOut")
-                .sum(ConditionalOperators.when(ComparisonOperators.valueOf("actionType").equalToValue("betTransferIn"))
-                        .then("amount").otherwise(0)).as("betTransferIn")
-                .sum(ConditionalOperators.when(Criteria.where("actionType").in("payOut", "payIn"))
-                        .then("amount").otherwise(0)).as("betAmount")
-                .sum(ConditionalOperators.when(Criteria.where("actionType").in("payOut", "payIn"))
-                        .then("amount").otherwise(0)).as("betResult");
-
-
-        List<String> includedFields = Arrays.asList(
-                "username",
-                "upline",
-                "refSale",
-                "beforeBalance",
-                "amountDeposit",
-                "amountWithdraw",
-                "betTransferOut",
-                "betTransferIn",
-                "betAmount",
-                "betResult",
-                "afterBalance",
-                "gameId",
-                "gameName",
-                "gameCategory",
-                "productId",
-                "productName",
-                "provider",
-                "percentage",
-                "createdAt",
-                "createdIso",
-                "created",
-                "actionType",
-                "action",
-                "description",
-                "txnid",
-                "ip",
-                "isFeatureBuy",
-                "endRound"
-        );
-
-        ProjectionOperation projectionOperation = Aggregation.project(includedFields.toArray(new String[]{}));
-
-        Aggregation aggregation=Aggregation.newAggregation(matchOperation,groupOperation,projectionOperation);
-        AggregationResults<Document> transactions = mongoTemplate.aggregate(aggregation, "transactions", Document.class);
-
-        createTransactionReport(transaction,transactions.getMappedResults());
+        return criteria;
     }
 
+    private static List<Bson> getAggregationPipelineForTransactions(Criteria criteria) {
+        List<Bson> pipeline = Arrays.asList(
+                Aggregates.match(criteria.getCriteriaObject()),
+                Aggregates.group("$roundId",
+                        Accumulators.last("actionType", "$actionType"),
+                        Accumulators.last("action", "$action"),
+                        Accumulators.first("beforeBalance", "$beforeBalance"),
+                        Accumulators.last("afterBalance", "$afterBalance"),
+                        Accumulators.first("doc", "$$ROOT"),
+                        Accumulators.first("isFeatureBuy", "$isFeatureBuy"),
+                        Accumulators.last("endRound", "$endRound"),
+                        Accumulators.last("createdAt", "$createdAt"),
+                        Accumulators.sum("amountDeposit", new Document("$cond", Arrays.asList(new Document("$eq", Arrays.asList("$actionType", "deposit")), "$amount", 0))),
+                        Accumulators.sum("amountWithdraw", new Document("$cond", Arrays.asList(new Document("$eq", Arrays.asList("$actionType", "withdraw")), "$amount", 0))),
+                        Accumulators.sum("betTransferOut", new Document("$cond", Arrays.asList(new Document("$eq", Arrays.asList("$actionType", "betTransferOut")), "$amount", 0))),
+                        Accumulators.sum("betTransferIn", new Document("$cond", Arrays.asList(new Document("$eq", Arrays.asList("$actionType", "betTransferIn")), "$amount", 0))),
+                        Accumulators.sum("betAmount", new Document("$cond", Arrays.asList(new Document("$or", List.of(new Document("$eq", Arrays.asList("$actionType", "payOut")))), "$amount", 0))),
+                        Accumulators.sum("betResult", new Document("$cond", Arrays.asList(new Document("$or", List.of(new Document("$eq", Arrays.asList("$actionType", "payIn")))), "$amount", 0)))
+                ),
+                Aggregates.project(
+                        Projections.fields(
+                                Projections.excludeId(),
+                                Projections.computed("username", "$doc.username"),
+                                Projections.computed("upline", "$doc.upline"),
+                                Projections.computed("refSale", "$doc.refSale"),
+                                Projections.include("beforeBalance", "amountDeposit", "amountWithdraw", "betTransferOut", "betTransferIn", "betAmount", "betResult", "afterBalance"),
+                                Projections.computed("gameId", "$doc.gameId"),
+                                Projections.computed("gameName", "$doc.gameName"),
+                                Projections.computed("gameCategory", "$doc.gameCategory"),
+                                Projections.computed("productId", "$doc.productId"),
+                                Projections.computed("productName", "$doc.productName"),
+                                Projections.computed("provider", "$doc.provider"),
+                                Projections.computed("percentage", "$doc.percentage"),
+                                Projections.computed("createdAt", "$doc.createdAt"),
+                                Projections.computed("createdIso", "$doc.createdIso"),
+                                Projections.computed("created", "$doc.created"),
+                                Projections.include("actionType", "action"),
+                                Projections.computed("description", "$doc.description"),
+                                Projections.computed("txnid", "$doc._id"),
+                                Projections.computed("ip", "$doc.ip"),
+                                Projections.include("isFeatureBuy", "endRound")
+                        )
+                )
+        );
+        return pipeline;
+    }
+
+    @Override
+    public void processTransaction(Transaction transaction) {
+        transactionRepository.save(transaction);
+        Criteria criteria = getTransactionsFilterCriteria(transaction);
+
+        List<Bson> pipeline = getAggregationPipelineForTransactions(criteria);
+        List<Document> combinedResults = new ArrayList<>();
+        getAggreatedDocuments("transactions", pipeline, combinedResults);
+        createTransactionReport(transaction, combinedResults);
+    }
+
+    private void getAggreatedDocuments(String collection, List<Bson> pipeline, List<Document> combinedResults) {
+        MongoCollection<Document> winLossMemberCollection = mongoTemplate.getCollection(collection);
+        MongoCursor<Document> cursor = winLossMemberCollection.aggregate(pipeline).iterator();
+        while (cursor.hasNext()) {
+            combinedResults.add(cursor.next());
+        }
+        cursor.close();
+    }
 
     public void createTransactionReport(Transaction latestTransaction, List<Document> transactions) {
         List<Document> reports = new ArrayList<>();

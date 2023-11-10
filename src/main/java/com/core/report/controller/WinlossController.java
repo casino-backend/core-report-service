@@ -1,10 +1,8 @@
 package com.core.report.controller;
 
-import com.core.report.dto.GetWinLossRequest;
 import com.core.report.dto.GetWinLossByProductRequest;
-
+import com.core.report.dto.GetWinLossRequest;
 import com.core.report.service.WinlossService;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;

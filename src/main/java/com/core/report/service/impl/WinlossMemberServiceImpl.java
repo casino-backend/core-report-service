@@ -1,22 +1,18 @@
 package com.core.report.service.impl;
 
+import com.core.report.client.MemberClient;
 import com.core.report.dto.Game;
 import com.core.report.dto.GetUserRequest;
 import com.core.report.dto.GetUserResponse;
-import com.core.report.dto.User;
-import com.core.report.client.MemberClient;
 import com.core.report.service.WinlossMemberService;
-//import com.core.report.service.dto.*;
-
-
 import com.core.report.utils.Transformer;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.model.*;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
 import org.bson.conversions.Bson;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Service;
 
@@ -31,13 +27,48 @@ import java.util.List;
 
 @Service
 @Slf4j
+@AllArgsConstructor
 public class WinlossMemberServiceImpl implements WinlossMemberService {
-   @Autowired
+
+    MemberClient memberClient;
+
     private MongoTemplate mongoTemplate;
-@Autowired
-MemberClient memberClient;
- @Override
- public void sumWinLossMember(Date startDate, Date endDate, Document filter, boolean byHour) throws Exception {
+
+    private static List<Bson> getAggregationPipelineForWinLossMemberByHour(Bson filter) {
+        List<Bson> pipeline = Arrays.asList(Aggregates.match(filter), Aggregates.group(
+                new Document("_id", new Document("username", "$username").append("productId", "$productId")),
+                Accumulators.sum("betCount", 1),
+                Accumulators.last("doc", "$$ROOT"),
+                Accumulators.sum("betAmount", "$betAmount"),
+                Accumulators.sum("betTransferIn", "$betTransferIn"),
+                Accumulators.sum("betTransferOut", "$betTransferOut"),
+                Accumulators.sum("betWinloss", "$betWinloss"),
+                Accumulators.sum("memberWinloss", "$memberWinloss")
+        ), Projections.fields(
+                Projections.include("betCount"),
+                Projections.computed("upline", "$doc.upline"),
+                Projections.computed("refSale", "$doc.refSale"),
+                Projections.include("betAmount", "betTransferIn", "betTransferOut", "memberWinloss", "betWinloss"),
+                Projections.computed("createdAt", "$doc.createdAt"),
+                Projections.computed("playdate", "$doc.playdate"),
+                Projections.computed("productName", "$doc.productName"),
+                Projections.computed("gameCategory", "$doc.gameCategory"),
+                Projections.computed("gameProvider", "$doc.gameProvider"),
+                Projections.computed("percentage", "$doc.percentage")
+        ));
+        return pipeline;
+    }
+
+    private static Bson getFilterCriteriaForWinLossMemberByHour(ZonedDateTime startDate, ZonedDateTime endDate) {
+        Bson filter = Filters.and(
+                Filters.gte("playdate", Date.from(startDate.toInstant())),
+                Filters.lte("playdate", Date.from(endDate.toInstant()))
+        );
+        return filter;
+    }
+
+    @Override
+    public void sumWinLossMember(Date startDate, Date endDate, Document filter, boolean byHour) throws Exception {
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
 
         if (!dateFormat.format(startDate).equals(dateFormat.format(endDate))) {
@@ -74,7 +105,7 @@ MemberClient memberClient;
                 .append("percentage", "$doc.percentage"));
         pipeline.add(projectStage);
 
-        List<Document> combinedResults=new ArrayList<>();
+        List<Document> combinedResults = new ArrayList<>();
 
         MongoCollection<Document> winLossMemberCollection = mongoTemplate.getCollection("transactionReports");
         MongoCursor<Document> cursor = winLossMemberCollection.aggregate(pipeline).iterator();
@@ -83,7 +114,7 @@ MemberClient memberClient;
         }
         cursor.close();
 
-        for (Document result:combinedResults) {
+        for (Document result : combinedResults) {
 
             Document _id = result.get("_id", Document.class);
             if (_id == null) {
@@ -137,8 +168,8 @@ MemberClient memberClient;
             newData.append("memberWinloss", memberWinloss);
 
             if (!byHour) {
-                 userUpline = result.getString("upline"); // Make sure to retrieve upline from the result
-                 productId = _id.getString("productId");
+                userUpline = result.getString("upline"); // Make sure to retrieve upline from the result
+                productId = _id.getString("productId");
 
                 GetUserRequest getAgentRequest = GetUserRequest.builder().username(userUpline).build();
 
@@ -177,7 +208,7 @@ MemberClient memberClient;
                         .append("productId", productId)
                         .append("startDate", startDate.toInstant().toString())
                         .append("endDate", endDate.toInstant().toString());
-                insertOrUpdateWinlossMember(filter1,newData);
+                insertOrUpdateWinlossMember(filter1, newData);
                 // Insert or update the document with the new data in MongoDB
                 // Use the MongoDB Java driver methods to interact with your database
             } else {
@@ -186,13 +217,13 @@ MemberClient memberClient;
                         .append("productId", productId)
                         .append("startDate", startDate.toInstant().toString())
                         .append("endDate", endDate.toInstant().toString());
-                insertOrUpdateWinLossMemberByHour(filter2,newData);
+                insertOrUpdateWinLossMemberByHour(filter2, newData);
             }
         }
     }
 
-   @Override
-   public void processDailyWinLoss(String sumDate) {
+    @Override
+    public void processDailyWinLoss(String sumDate) {
         ZonedDateTime startDate, endDate;
 
         if (sumDate != null && !sumDate.isEmpty()) {
@@ -206,43 +237,12 @@ MemberClient memberClient;
             endDate = now.withHour(23).withMinute(59).withSecond(59).withNano(0);
         }
 
-        Bson filter = Filters.and(
-                Filters.gte("playdate", Date.from(startDate.toInstant())),
-                Filters.lte("playdate", Date.from(endDate.toInstant()))
-        );
+        Bson filter = getFilterCriteriaForWinLossMemberByHour(startDate, endDate);
 
+        List<Bson> pipeline = getAggregationPipelineForWinLossMemberByHour(filter);
 
-        Bson groupStage = Aggregates.group(
-                new Document("_id", new Document("username", "$username").append("productId", "$productId")),
-                Accumulators.sum("betCount", 1),
-                Accumulators.last("doc", "$$ROOT"),
-                Accumulators.sum("betAmount", "$betAmount"),
-                Accumulators.sum("betTransferIn", "$betTransferIn"),
-                Accumulators.sum("betTransferOut", "$betTransferOut"),
-                Accumulators.sum("betWinloss", "$betWinloss"),
-                Accumulators.sum("memberWinloss", "$memberWinloss")
-        );
-
-        Bson projectStage = Projections.fields(
-                Projections.include("betCount"),
-                Projections.computed("upline", "$doc.upline"),
-                Projections.computed("refSale", "$doc.refSale"),
-                Projections.include("betAmount", "betTransferIn", "betTransferOut", "memberWinloss", "betWinloss"),
-                Projections.computed("createdAt", "$doc.createdAt"),
-                Projections.computed("playdate", "$doc.playdate"),
-                Projections.computed("productName", "$doc.productName"),
-                Projections.computed("gameCategory", "$doc.gameCategory"),
-                Projections.computed("gameProvider", "$doc.gameProvider"),
-                Projections.computed("percentage", "$doc.percentage")
-        );
-
-        List<Bson> pipeline = Arrays.asList(
-                Aggregates.match(filter),
-                groupStage,
-                projectStage
-        );
         List<Document> combinedResults = aggregateWinLossMemberByHour(pipeline);
-        for(Document result:combinedResults){
+        for (Document result : combinedResults) {
 
             String username = result.getString("_id.username");
             if (username == null) {
@@ -262,10 +262,8 @@ MemberClient memberClient;
             double betWinloss = getDoubleValue(result, "betWinloss");
             double memberWinloss = getDoubleValue(result, "memberWinloss");
 
-
-
             // Fetch agent game details
-            double rate = memberClient.fetchAgentGameRate(upline,productId);
+            double rate = memberClient.fetchAgentGameRate(upline, productId);
 
             if (rate == 0.0) {
                 throw new RuntimeException("Failed to get upline game rate");
@@ -282,7 +280,7 @@ MemberClient memberClient;
             String userUpline = memberDetails.getString("Upline");
             String uCompany = memberDetails.getString("UCompany");
 
-            Document newData = new Document(Transformer.winlossSchemaTransformer( Date.from(startDate.toInstant()), Date.from(endDate.toInstant()), productId, result));
+            Document newData = new Document(Transformer.winlossSchemaTransformer(Date.from(startDate.toInstant()), Date.from(endDate.toInstant()), productId, result));
             int level = 0;
             newData.put("level", level);
             newData.put("username", username);
@@ -302,18 +300,8 @@ MemberClient memberClient;
                     Filters.eq("startDate", startDate),
                     Filters.eq("endDate", endDate)
             );
-
-            // Insert or update the document
             insertOrUpdateWinlossMember(upsertFilter, newData);
         }
-
-
-        // Use the filter in your MongoDB query
-    }
-
-    private double fetchAgentGameRate(String productId) {
-        // Implement logic to fetch agent game rate based on productId
-        return 0.0;
     }
 
     private Document fetchMemberDetails(String username) {
@@ -323,50 +311,31 @@ MemberClient memberClient;
                 .append("UCompany", "uCompanyValue");
     }
 
-    private Document transformWinlossSchema(String startDate, String endDate, String productId, Document result) {
-        // Implement logic to transform the winloss schema
-        return new Document("transformedData", "value");
-    }
-
 
     public List<Document> aggregateWinLossMemberByHour(List<Bson> pipeline) {
-        List<Document> combinedResults=new ArrayList<>();
+        List<Document> combinedResults = new ArrayList<>();
 
-            MongoCollection<Document> winLossMemberCollection = mongoTemplate.getCollection("winlossMembers");
-            MongoCursor<Document> cursor = winLossMemberCollection.aggregate(pipeline).iterator();
-            while (cursor.hasNext()) {
-                combinedResults.add(cursor.next());
-            }
-            cursor.close();
+        MongoCollection<Document> winLossMemberCollection = mongoTemplate.getCollection("winlossMembers");
+        MongoCursor<Document> cursor = winLossMemberCollection.aggregate(pipeline).iterator();
+        while (cursor.hasNext()) {
+            combinedResults.add(cursor.next());
+        }
+        cursor.close();
 
         return combinedResults;
     }
 
 
-        private void insertOrUpdateWinlossMember(Bson filter, Document newData) {
-
+    private void insertOrUpdateWinlossMember(Bson filter, Document newData) {
         MongoCollection<Document> collection = mongoTemplate.getCollection("winlossMembers");
-
-        // Create an instance of UpdateOptions to enable upsert (insert if not found)
         UpdateOptions options = new UpdateOptions().upsert(true);
-
-        // Perform the insert or update operation
         collection.updateOne(filter, new Document("$set", newData), options);
-
-        // Close the MongoClient when done
     }
 
     private void insertOrUpdateWinLossMemberByHour(Bson filter, Document newData) {
-        try{
-            MongoCollection<Document> collection = mongoTemplate.getCollection("winlossMembersByHour");
-
-            UpdateOptions options = new UpdateOptions().upsert(true);
-
-            collection.updateOne(filter, new Document("$set", newData), options);
-        } catch (Exception e) {
-            // Handle exceptions
-            e.printStackTrace();
-        }
+        MongoCollection<Document> collection = mongoTemplate.getCollection("winlossMembersByHour");
+        UpdateOptions options = new UpdateOptions().upsert(true);
+        collection.updateOne(filter, new Document("$set", newData), options);
     }
 
     private double getDoubleValue(Document document, String field) {

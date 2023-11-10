@@ -1,5 +1,6 @@
-package com.core.report.client;
+package com.core.report.client.impl;
 
+import com.core.report.client.MemberClient;
 import com.core.report.dto.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,7 +22,8 @@ public class MemberClientImpl implements MemberClient {
                 .baseUrl(baseUrl) // Replace with the actual API endpoint
                 .build();
     }
-@Override
+
+    @Override
     public GetUserResponse getUser(GetUserRequest request) {
 
         return webClient.post()
@@ -44,7 +46,8 @@ public class MemberClientImpl implements MemberClient {
                 .retrieve()
                 .bodyToMono(GetParentsResponse.class).block();
     }
-@Override
+
+    @Override
     public double fetchAgentGameRate(String username, String productId) {
         String url = "/getAgentGameRate"; // Replace with the actual endpoint
 
@@ -93,7 +96,6 @@ public class MemberClientImpl implements MemberClient {
 
         return new User();
     }*/
-
 
 
 }

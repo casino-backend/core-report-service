@@ -1,7 +1,6 @@
 package com.core.report.dto;
 
 import java.util.List;
-import java.util.Map;
 
 public class GetWinLossRequest {
     private String username;

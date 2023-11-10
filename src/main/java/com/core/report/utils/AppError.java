@@ -1,27 +1,14 @@
 package com.core.report.utils;
 
 public class AppError extends Exception {
-    private int code;
-    private String message;
-    private Throwable err;
+    private final int code;
+    private final String message;
+    private final Throwable err;
 
     public AppError(int code, String message, Throwable err) {
         this.code = code;
         this.message = message;
         this.err = err;
-    }
-
-    public int getCode() {
-        return code;
-    }
-
-    @Override
-    public String getMessage() {
-        return message;
-    }
-
-    public Throwable getErr() {
-        return err;
     }
 
     public static AppError newInternalError(Throwable err, String... message) {
@@ -54,5 +41,18 @@ public class AppError extends Exception {
             msg = message[0];
         }
         return new AppError(401, msg, err);
+    }
+
+    public int getCode() {
+        return code;
+    }
+
+    @Override
+    public String getMessage() {
+        return message;
+    }
+
+    public Throwable getErr() {
+        return err;
     }
 }

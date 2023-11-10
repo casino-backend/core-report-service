@@ -1,11 +1,11 @@
 package com.core.report.service.impl;
 
-import com.core.report.constants.Constants;
-import com.core.report.dto.*;
 import com.core.report.client.MemberClient;
+import com.core.report.constants.Constants;
+import com.core.report.dto.Game;
+import com.core.report.dto.GetUserRequest;
+import com.core.report.dto.GetUserResponse;
 import com.core.report.service.WinlossAgentService;
-
-
 import com.core.report.utils.Transformer;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
@@ -43,7 +43,8 @@ public class WinlossAgentServiceImpl implements WinlossAgentService {
 
     private MongoTemplate mongoTemplate;
     private MemberClient memberClient;
-@Override
+
+    @Override
     public void sumWinLossAgent(Date oldStartDate, Date oldEndDate, String upline) throws Exception {
         String startDate, endDate;
         SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -96,7 +97,7 @@ public class WinlossAgentServiceImpl implements WinlossAgentService {
         projectFields.append("gameProvider", "$doc.gameProvider");
 
         pipeline.add(new Document("$project", projectFields));
-        List<Document> combinedResults=new ArrayList<>();
+        List<Document> combinedResults = new ArrayList<>();
         MongoCollection<Document> winLossMemberCollection = mongoTemplate.getCollection("winlossMembers");
         MongoCursor<Document> cursor = winLossMemberCollection.aggregate(pipeline).iterator();
         while (cursor.hasNext()) {
@@ -153,7 +154,7 @@ public class WinlossAgentServiceImpl implements WinlossAgentService {
             Instant instantEndDate = parsedEndDate.atZone(ZoneId.systemDefault()).toInstant();
 
             // Convert Instant to Date
-            Map<String, Object> newData = Transformer.winlossSchemaTransformer( Date.from(instantStartDate), Date.from(instantEndDate), productId, result);
+            Map<String, Object> newData = Transformer.winlossSchemaTransformer(Date.from(instantStartDate), Date.from(instantEndDate), productId, result);
 
             newData.put("level", 1);
             newData.put("uCompany", uCompany);
@@ -180,7 +181,7 @@ public class WinlossAgentServiceImpl implements WinlossAgentService {
 
             insertOrUpdateWinlossAgent(filter, new Document(newData));
             // Rest of your Java code here
-    }
+        }
 
 
         if (upline != null && !upline.isEmpty()) {
@@ -332,7 +333,7 @@ public class WinlossAgentServiceImpl implements WinlossAgentService {
             Query query = new Query(criteria);
             insertOrUpdateWinlossAgentTemp(bsonFilter, new Document(newData));
         }
-      sumWinlossFinalStep(startDate,endDate,uCompany);
+        sumWinlossFinalStep(startDate, endDate, uCompany);
         // Further processing...
         //need to check
         return true;
@@ -383,7 +384,7 @@ public class WinlossAgentServiceImpl implements WinlossAgentService {
         );
 
 
-            List<Document> documents = aggregateWinLossAgentTemp(pipeline);
+        List<Document> documents = aggregateWinLossAgentTemp(pipeline);
 
         for (Document result : documents) {
             Document id = (Document) result.get("_id");
@@ -451,7 +452,7 @@ public class WinlossAgentServiceImpl implements WinlossAgentService {
             LocalDateTime parsedEndDate;
             try {
                 parsedStartDate = LocalDateTime.parse(startDate, Constants.DATE_TIME_FORMAT);
-                parsedEndDate = LocalDateTime.parse(endDate,  Constants.DATE_TIME_FORMAT);
+                parsedEndDate = LocalDateTime.parse(endDate, Constants.DATE_TIME_FORMAT);
             } catch (DateTimeParseException e) {
                 log.error("Failed to parse dates", e);
                 throw new RuntimeException("Failed to parse dates", e);
@@ -460,7 +461,7 @@ public class WinlossAgentServiceImpl implements WinlossAgentService {
             Instant instantStartDate = parsedStartDate.atZone(ZoneId.systemDefault()).toInstant();
             Instant instantEndDate = parsedEndDate.atZone(ZoneId.systemDefault()).toInstant();
 
-            Document newData = new Document( Transformer.winlossSchemaTransformer(Date.from(instantStartDate), Date.from(instantEndDate), productId, result));// You'll need to implement this
+            Document newData = new Document(Transformer.winlossSchemaTransformer(Date.from(instantStartDate), Date.from(instantEndDate), productId, result));// You'll need to implement this
 
             newData.append("level", result.getInteger("level", 0) + 1);
             newData.append("uCompany", userCompany);
@@ -485,7 +486,7 @@ public class WinlossAgentServiceImpl implements WinlossAgentService {
                     Filters.eq("startDate", startDate),
                     Filters.eq("endDate", endDate)
             );
-            insertOrUpdateWinlossAgent(filter1,newData);
+            insertOrUpdateWinlossAgent(filter1, newData);
             //			return errors.New("failed to insert winloss agent at final step")
             Bson tempFilter = Filters.and(
                     Filters.eq("uCompany", uCompany),
@@ -499,7 +500,7 @@ public class WinlossAgentServiceImpl implements WinlossAgentService {
     }
 
     public List<Document> aggregateWinLossAgentTemp(List<Bson> pipeline) throws Exception {
-        List<Document> combinedResults=new ArrayList<>();
+        List<Document> combinedResults = new ArrayList<>();
 
         MongoCollection<Document> collection = mongoTemplate.getCollection("winlossAgentsTemp");
 
@@ -511,6 +512,7 @@ public class WinlossAgentServiceImpl implements WinlossAgentService {
 
         return combinedResults;
     }
+
     public void insertOrUpdateWinlossAgentTemp(Bson filter, Bson transaction) throws Exception {
         MongoCollection<Document> collection = mongoTemplate.getCollection("winlossAgentsTemp");
         UpdateOptions options = new UpdateOptions().upsert(true);
@@ -528,6 +530,7 @@ public class WinlossAgentServiceImpl implements WinlossAgentService {
             throw e;
         }
     }
+
     public void insertOrUpdateWinlossAgent(Bson filter, Bson transaction) throws Exception {
         UpdateOptions options = new UpdateOptions().upsert(true);
 
@@ -541,6 +544,7 @@ public class WinlossAgentServiceImpl implements WinlossAgentService {
             throw e;
         }
     }
+
     private Date getStartOfDay(Date date) {
         // Set the time to the beginning of the day
         // For example, "2023-11-02 00:00:00"

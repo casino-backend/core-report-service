@@ -21,48 +21,48 @@ public class Downline {
         return rate;
     }
 
-    public double getRateValid() {
-        return rateValid;
-    }
-
-    public String getID() {
-        return ID;
-    }
-
-    public double getWinloss() {
-        return winloss;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public String getUserType() {
-        return userType;
-    }
-
     public void setRate(double rate) {
         this.rate = rate;
+    }
+
+    public double getRateValid() {
+        return rateValid;
     }
 
     public void setRateValid(double rateValid) {
         this.rateValid = rateValid;
     }
 
+    public String getID() {
+        return ID;
+    }
+
     public void setID(String ID) {
         this.ID = ID;
+    }
+
+    public double getWinloss() {
+        return winloss;
     }
 
     public void setWinloss(double winloss) {
         this.winloss = winloss;
     }
 
+    public String getUsername() {
+        return username;
+    }
+
     public void setUsername(String username) {
         this.username = username;
+    }
+
+    public String getUserType() {
+        return userType;
     }
 
     public void setUserType(String userType) {
         this.userType = userType;
     }
 
-    }
+}

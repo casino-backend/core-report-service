@@ -1,7 +1,6 @@
 package com.core.report.entities;
 
 
-
 public class WinLossTransaction {
     private String id;
     private String username;

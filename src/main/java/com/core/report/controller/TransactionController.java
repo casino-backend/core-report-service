@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class TransactionController {
     private final TransactionService transactionService;
-    private final KafkaTemplate<String,String> kafkaTemplate;
+    private final KafkaTemplate<String, String> kafkaTemplate;
 
     @Value("${spring.kafka.consumer.topics}")
     private String topics;
@@ -26,22 +26,8 @@ public class TransactionController {
         this.kafkaTemplate = kafkaTemplate;
     }
 
-  /*  public static TransactionController create(TransactionInputPort transactionInter, String bootstrapServers, String schemaRegistryUrl) {
-        Properties props = new Properties();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "transaction-group");
-        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, KafkaAvroDeserializer.class);
-        props.put(KafkaAvroDeserializerConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryUrl);
-        props.put(KafkaAvroDeserializerConfig.SPECIFIC_AVRO_READER_CONFIG, true);
-
-        KafkaConsumer<String, Transaction> kafkaConsumer = new KafkaConsumer<>(props);
-        kafkaConsumer.subscribe(Collections.singletonList("transaction"));
-
-        return new TransactionController(transactionInter, transactionService, kafkaConsumer);
-    }*/
-
-      public void listenAndProcessGameTransaction(String message) {
+    @KafkaListener(topics = "${spring.kafka.consumer.topics}", groupId = "${spring.kafka.consumer.group-id}")
+    public void listenAndProcessGameTransaction(String message) {
         try {
             // You can parse the JSON data into your entity class
             ObjectMapper objectMapper = new ObjectMapper();
@@ -56,7 +42,7 @@ public class TransactionController {
     }
 
     @PostMapping("/kafka")
-   public String publishTransactionToKafka() throws JsonProcessingException {
+    public String publishTransactionToKafka() throws JsonProcessingException {
         Transaction transaction = new Transaction();
         transaction.setActionType("DEPOSIT");
         transaction.setAction("User deposit");
@@ -88,7 +74,7 @@ public class TransactionController {
 // Convert Transaction object to JSON
         ObjectMapper objectMapper = new ObjectMapper();
         String jsonTransaction = objectMapper.writeValueAsString(transaction);
-        kafkaTemplate.send(topics,jsonTransaction);
+        kafkaTemplate.send(topics, jsonTransaction);
         return "message published successfully";
     }
 

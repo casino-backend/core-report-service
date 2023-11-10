@@ -4,7 +4,6 @@ import com.core.report.constants.Constants;
 import com.core.report.service.SchedulerService;
 import com.core.report.service.WinlossAgentService;
 import com.core.report.service.WinlossMemberService;
-import lombok.AllArgsConstructor;
 import org.bson.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -22,6 +21,26 @@ public class SchedulerServiceImpl implements SchedulerService {
 
     @Autowired
     private WinlossAgentService winLossAgentService;
+
+    static List<String> getTimeHourLists(int hours) {
+        List<String> data = new ArrayList<>();
+        LocalTime startTime = LocalTime.MIDNIGHT;
+
+        while (true) {
+            LocalTime nextHour = startTime.plusHours(hours);
+            if (nextHour.equals(LocalTime.MIDNIGHT)) {
+                break;
+            }
+            String timeRange = String.format("%s-%s",
+                    startTime.format(DateTimeFormatter.ofPattern("HH:mm:ss")),
+                    nextHour.minusMinutes(1).format(DateTimeFormatter.ofPattern("HH:mm:ss")));
+            data.add(timeRange);
+            startTime = nextHour;
+        }
+
+        data.add("00:00:00-00:59:59");
+        return data;
+    }
 
     @Scheduled(cron = "0 */1 * * * *") // Runs every minute
     public void sumWinLossByMinute() {
@@ -41,43 +60,11 @@ public class SchedulerServiceImpl implements SchedulerService {
         ZonedDateTime endDateZonedDateTime = endDate.atZone(ZoneId.systemDefault());
 
         try {
-            winLossMemberService.sumWinLossMember(Date.from( startDateZonedDateTime.toInstant()), Date.from( endDateZonedDateTime.toInstant()), new Document(filter), true);
+            winLossMemberService.sumWinLossMember(Date.from(startDateZonedDateTime.toInstant()), Date.from(endDateZonedDateTime.toInstant()), new Document(filter), true);
             winLossMemberService.processDailyWinLoss("");
         } catch (Exception e) {
             e.printStackTrace();
             // Handle the exception appropriately
-        }
-    }
-
-    @Scheduled(cron = "0 0 * * * *") // Runs every hour
-    public void sumWinLossByHour() {
-        System.out.println("Running Scheduler........Summing WinLoss By Hour");
-
-        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
-        LocalDateTime startDate = now.withMinute(0).withSecond(0).withNano(0);
-        LocalDateTime endDate = now.withMinute(59).withSecond(59).withNano(999999999);
-        String formattedStartDate = startDate.format(Constants.DATE_TIME_FORMAT);
-        String formattedEndDate = endDate.format(Constants.DATE_TIME_FORMAT);
-
-        if (endDate.getHour() == 0 && endDate.getMinute() == 59) {
-            throw new RuntimeException("Date range exceeds one day");
-        }
-
-        Document filter = new Document("$and", Arrays.asList(
-                new Document("playdate", new Document("$gte", formattedStartDate).append("$lte", formattedEndDate)),
-                new Document("productId", new Document("$ne", "withdrawal"))
-        ));
-
-        ZonedDateTime startDateZonedDateTime = startDate.atZone(ZoneId.systemDefault());
-        ZonedDateTime endDateZonedDateTime = endDate.atZone(ZoneId.systemDefault());
-
-        try {
-            winLossMemberService.sumWinLossMember(Date.from( startDateZonedDateTime.toInstant()), Date.from( endDateZonedDateTime.toInstant()), filter, true);
-            winLossMemberService.processDailyWinLoss("");
-            winLossAgentService.sumWinLossAgent(null, null, "");
-        } catch (Exception e) {
-            // Log the exception and handle it appropriately
-            e.printStackTrace();
         }
     }
 
@@ -136,23 +123,35 @@ public class SchedulerServiceImpl implements SchedulerService {
         }
     }*/
 
-       static List<String> getTimeHourLists(int hours) {
-        List<String> data = new ArrayList<>();
-        LocalTime startTime = LocalTime.MIDNIGHT;
+    @Scheduled(cron = "0 0 * * * *") // Runs every hour
+    public void sumWinLossByHour() {
+        System.out.println("Running Scheduler........Summing WinLoss By Hour");
 
-        while (true) {
-            LocalTime nextHour = startTime.plusHours(hours);
-            if (nextHour.equals(LocalTime.MIDNIGHT)) {
-                break;
-            }
-            String timeRange = String.format("%s-%s",
-                    startTime.format(DateTimeFormatter.ofPattern("HH:mm:ss")),
-                    nextHour.minusMinutes(1).format(DateTimeFormatter.ofPattern("HH:mm:ss")));
-            data.add(timeRange);
-            startTime = nextHour;
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        LocalDateTime startDate = now.withMinute(0).withSecond(0).withNano(0);
+        LocalDateTime endDate = now.withMinute(59).withSecond(59).withNano(999999999);
+        String formattedStartDate = startDate.format(Constants.DATE_TIME_FORMAT);
+        String formattedEndDate = endDate.format(Constants.DATE_TIME_FORMAT);
+
+        if (endDate.getHour() == 0 && endDate.getMinute() == 59) {
+            throw new RuntimeException("Date range exceeds one day");
         }
 
-        data.add("00:00:00-00:59:59");
-        return data;
+        Document filter = new Document("$and", Arrays.asList(
+                new Document("playdate", new Document("$gte", formattedStartDate).append("$lte", formattedEndDate)),
+                new Document("productId", new Document("$ne", "withdrawal"))
+        ));
+
+        ZonedDateTime startDateZonedDateTime = startDate.atZone(ZoneId.systemDefault());
+        ZonedDateTime endDateZonedDateTime = endDate.atZone(ZoneId.systemDefault());
+
+        try {
+            winLossMemberService.sumWinLossMember(Date.from(startDateZonedDateTime.toInstant()), Date.from(endDateZonedDateTime.toInstant()), filter, true);
+            winLossMemberService.processDailyWinLoss("");
+            winLossAgentService.sumWinLossAgent(null, null, "");
+        } catch (Exception e) {
+            // Log the exception and handle it appropriately
+            e.printStackTrace();
+        }
     }
 }

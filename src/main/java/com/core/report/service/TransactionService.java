@@ -4,5 +4,5 @@ import com.core.report.entities.Transaction;
 
 public interface TransactionService {
 
-     void processTransaction(Transaction transaction);
+    void processTransaction(Transaction transaction);
 }
