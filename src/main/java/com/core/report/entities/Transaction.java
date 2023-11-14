@@ -13,7 +13,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 @Builder
 @Document(collection = "transactions")
 public class Transaction {
-    private String actionType;
+    private String actionType; // deposit , withdraw ,betTransferOut,  betTransferIn, payOut , payIn
     private String action;
     private double beforeBalance;
     private double amount;

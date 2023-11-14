@@ -68,7 +68,8 @@ public class SchedulerServiceImpl implements SchedulerService {
         }
     }
 
-  /*  @Scheduled(cron = "0 0 0 * * *") // Runs every day at midnight
+    @Scheduled(cron = "0 0 0 * * *") // Runs every day at midnight
+/*
     public void sumWinLossByDay(String date) {
         System.out.println("Running Scheduler........Summing WinLoss By Day");
 
@@ -95,7 +96,7 @@ public class SchedulerServiceImpl implements SchedulerService {
             Instant instantStartDate = startDateTime.atZone(ZoneId.systemDefault()).toInstant();
             Instant instantEndDate = endDateTime.atZone(ZoneId.systemDefault()).toInstant();
             try {
-                winLossMemberService.sumWinLossMember(Date.from(instantStartDate), Date.from(instantEndDate),filter ,true);
+                winLossMemberService.sumWinLossMember(Date.from(instantStartDate), Date.from(instantEndDate), filter, true);
                 // Additional handling to mimic the Go filter logic
             } catch (Exception e) {
                 e.printStackTrace();
@@ -116,12 +117,13 @@ public class SchedulerServiceImpl implements SchedulerService {
         Instant instantStartDate = startOfDay.atZone(ZoneId.systemDefault()).toInstant();
         Instant instantEndDate = endOfDay.atZone(ZoneId.systemDefault()).toInstant();
         try {
-            winLossAgentService.sumWinLossAgent(Date.from(instantStartDate), Date.from(instantEndDate),"");
+            winLossAgentService.sumWinLossAgent(Date.from(instantStartDate), Date.from(instantEndDate), "");
         } catch (Exception e) {
             e.printStackTrace();
             // Handle exception appropriately
         }
-    }*/
+    }
+*/
 
     @Scheduled(cron = "0 0 * * * *") // Runs every hour
     public void sumWinLossByHour() {

@@ -209,8 +209,6 @@ public class WinlossMemberServiceImpl implements WinlossMemberService {
                         .append("startDate", startDate.toInstant().toString())
                         .append("endDate", endDate.toInstant().toString());
                 insertOrUpdateWinlossMember(filter1, newData);
-                // Insert or update the document with the new data in MongoDB
-                // Use the MongoDB Java driver methods to interact with your database
             } else {
 
                 Document filter2 = new Document("username", username)

@@ -6,10 +6,10 @@ import com.core.report.service.TransactionService;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.model.*;
+import lombok.AllArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.bson.Document;
 import org.bson.conversions.Bson;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.stereotype.Service;
@@ -24,12 +24,10 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Service
+@AllArgsConstructor
 public class TransactionServiceImpl implements TransactionService {
-    @Autowired
     private TransactionRepository transactionRepository;
-    private MongoCollection<Document> transactionCollection;
 
-    @Autowired
     private MongoTemplate mongoTemplate;
 
     private static Criteria getTransactionsFilterCriteria(Transaction transaction) {
@@ -130,10 +128,16 @@ public class TransactionServiceImpl implements TransactionService {
             String provider = key.getString("provider");
             boolean endRound = key.getBoolean("endRound");
 
-            Double betWinLoss = key.getDouble("betResult") - betAmount;
-            Double winLossInOut = betTransferIn - betTransferOut;
-            Double memberWinLoss = betWinLoss + winLossInOut;
-            Double percentage = key.getDouble("percentage");
+            // betResult =20
+            // turnover amount / betAmount =10
+            // betWinLoss
+            //winLossInOut = memberWinLoss - betTransferOut =
+
+
+            Double betWinLoss = key.getDouble("betResult") - betAmount; //20 -10  =10
+            Double winLossInOut = betTransferIn - betTransferOut;  // 10 -0 =10
+            Double memberWinLoss = betWinLoss + winLossInOut;// 10 +10 =20
+            Double percentage = key.getDouble("percentage");// 90 %
             Double uplineWinLoss = (betWinLoss / 100) * percentage * -1;
             String status = "";
 
@@ -221,9 +225,13 @@ public class TransactionServiceImpl implements TransactionService {
             UpdateOptions updateOptions = new UpdateOptions();
             updateOptions.upsert(true);
 
-            transactionCollection.updateOne(filter, update, updateOptions);
+            MongoCollection<Document> transactionReportsCollection = mongoTemplate.getCollection("transactionReports");
 
-            transactionCollection.updateOne(Filters.and(Filters.eq("username", latestTransaction.getUsername()), Filters.eq("roundId", latestTransaction.getRoundId())), update);
+            MongoCollection<Document> transactionReportDailyCollection = mongoTemplate.getCollection("transactionReportDaily");
+
+            transactionReportsCollection.updateOne(filter, update, updateOptions);
+
+            transactionReportDailyCollection.updateOne(filter, update, updateOptions);
             String pattern = "yyyy-MM-dd HH:mm:ss"; // Specify your date pattern
 
             SimpleDateFormat dateFormat = new SimpleDateFormat(pattern);
@@ -243,7 +251,8 @@ public class TransactionServiceImpl implements TransactionService {
             long playdateDiff = TimeUnit.MILLISECONDS.toDays(durationMillis);
 
             if (playdateDiff > 0) {
-                transactionCollection.updateOne(Filters.and(Filters.eq("username", latestTransaction.getUsername()), Filters.eq("roundId", latestTransaction.getRoundId())), update);
+                MongoCollection<Document> transactionRunningCollection = mongoTemplate.getCollection("transactionRunning");
+                transactionRunningCollection.updateOne(Filters.and(Filters.eq("username", latestTransaction.getUsername()), Filters.eq("roundId", latestTransaction.getRoundId())), update, updateOptions);
             }
         }
     }
